@@ -6,6 +6,15 @@ import os
 from pprint import pprint
 
 # Parse Arguments
+# Reference: https://stackoverflow.com/questions/44561722/why-in-argparse-a-true-is-always-true
+def bool_string(s):
+    if s.lower() == 'true':
+        return True
+    elif s.lower() == 'false':
+        return False
+    else:
+        raise ValueError
+
 parser = argparse.ArgumentParser(description='PyTorch Variational Transformer For Music Generation')
 
 parser.add_argument('--data', type=str, default='data',
@@ -26,7 +35,7 @@ parser.add_argument('--seq_len', type=int, default=256,
                     help='sequence length')
 parser.add_argument('--seed', type=int, default=0,
                     help='random seed')
-parser.add_argument('--wandb', type=bool, default=True,
+parser.add_argument('--wandb', type=bool_string, default=False,
                     help='use wandb for logging')
 
 args = parser.parse_args()
