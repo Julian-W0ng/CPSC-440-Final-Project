@@ -31,7 +31,7 @@ class MusicData(Dataset):
 if __name__ == '__main__':
     dataset = MusicData()
     dataloader = DataLoader(dataset, batch_size=1, shuffle=True)
-    for i, (waveform, sample_rate) in enumerate(dataloader):
-        print(waveform.shape, sample_rate)
+    for i, waveform in enumerate(dataloader):
+        print(waveform.shape)
         if i == 5:
             break
