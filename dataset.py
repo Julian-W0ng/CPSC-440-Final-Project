@@ -40,6 +40,9 @@ class MusicData(Dataset):
         if waveform.shape[-1] > self.SAMPLE_RATE*self.SAMPLE_LENGTH:
             waveform = waveform[:, :self.SAMPLE_RATE*self.SAMPLE_LENGTH]
 
+        # switch channels and time
+        waveform = waveform.permute(1, 0)
+
         return waveform
     
 if __name__ == '__main__':
@@ -48,6 +51,6 @@ if __name__ == '__main__':
     for i, waveform in enumerate(dataloader):
         if i == 0:
             print('Waveform Shape:', waveform.shape)
-        if waveform.shape[-1] != dataset.SAMPLE_RATE*dataset.SAMPLE_LENGTH:
+        if waveform.shape[1] != dataset.SAMPLE_RATE*dataset.SAMPLE_LENGTH:
             print('Incorrect Shape:', waveform.shape)
             break

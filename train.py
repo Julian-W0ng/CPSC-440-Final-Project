@@ -4,6 +4,7 @@ import wandb
 import time
 import os
 from pprint import pprint
+from dataset import MusicData
 
 # Parse Arguments
 # Reference: https://stackoverflow.com/questions/44561722/why-in-argparse-a-true-is-always-true
@@ -29,10 +30,18 @@ parser.add_argument('--model', type=str, default=None,
                     help='location of the model to continue training')
 parser.add_argument('--epochs', type=int, default=100,
                     help='number of epochs to train')
-parser.add_argument('--batch_size', type=int, default=16,
+parser.add_argument('--batch_size', type=int, default=5,
                     help='batch size')
-parser.add_argument('--seq_len', type=int, default=256,
-                    help='sequence length')
+parser.add_argument('--seq_len', type=int, default=5,
+                    help='length of the sequence in seconds')
+parser.add_argument('--sample_rate', type=int, default=44100,
+                    help='sample rate')
+parser.add_argument('--dropout', type=float, default=0.1,
+                    help='dropout rate')
+parser.add_argument('--nheads', type=int, default=8,
+                    help='number of attention heads')
+parser.add_argument('--channels', type=int, default=1,
+                    help='number of channels')
 parser.add_argument('--seed', type=int, default=0,
                     help='random seed')
 parser.add_argument('--wandb', type=bool_string, default=False,
@@ -65,6 +74,12 @@ else:
     device = torch.device('cpu')
 
 print('USING DEVICE:', device)
+
+train_dataset = MusicData(sample_length=args.seq_len, sample_rate=args.sample_rate, mode='train')
+test_dataset = MusicData(sample_length=args.seq_len, sample_rate=args.sample_rate, mode='test')
+
+train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True)
+test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=args.batch_size, shuffle=True)
 
 # load model if specified
 model = None #TODO: Load model
