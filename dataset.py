@@ -1,6 +1,7 @@
 import torchaudio
 from torch.utils.data import Dataset, DataLoader
 import os
+from utils import plot_waveform, plot_specgram
 
 class MusicData(Dataset):
     def __init__(self, sample_length=5, sample_rate=44100, mode='train', transform=None):
@@ -11,19 +12,11 @@ class MusicData(Dataset):
         self.transform = transform
         self.data = []
         
-        total_samples = 0
-        usable_samples = 0
         for file in os.listdir(self.root_dir):
             if file.endswith('.wav'):
                 path = os.path.join(self.root_dir, file)
-                waveform, sample_rate = torchaudio.load(path)
-                # Check length of audio
-                if waveform.shape[-1] >= sample_rate*sample_length:
-                    self.data.append(path)
-                    usable_samples += 1
-                total_samples += 1
-
-        print(f'Total Samples: {total_samples}, Usable Samples: {usable_samples}')
+                self.data.append(path)
+    
 
     def __len__(self):
         return len(self.data)
@@ -32,7 +25,7 @@ class MusicData(Dataset):
         audio_path = self.data[idx]
         waveform, sample_rate = torchaudio.load(audio_path)
         if sample_rate != self.SAMPLE_RATE:
-            print(f'Resampling from {sample_rate} to {self.SAMPLE_RATE}')
+            # print(f'Resampling from {sample_rate} to {self.SAMPLE_RATE}')
             resampler = torchaudio.transforms.Resample(orig_freq=sample_rate, new_freq=self.SAMPLE_RATE)
             waveform = resampler(waveform)
         if self.transform:
@@ -49,8 +42,12 @@ if __name__ == '__main__':
     dataset = MusicData()
     dataloader = DataLoader(dataset, batch_size=5, shuffle=True)
     for i, waveform in enumerate(dataloader):
-        if i == 0:
+        if i < 5:
             print('Waveform Shape:', waveform.shape)
+            first_sample_waveform = waveform[0, :dataset.SAMPLE_RATE, 0].unsqueeze(0)
+            plot_waveform(first_sample_waveform, dataset.SAMPLE_RATE)
+            plot_specgram(first_sample_waveform, dataset.SAMPLE_RATE)
+            input('Press Enter to continue...')
         if waveform.shape[1] != dataset.SAMPLE_RATE*dataset.SAMPLE_LENGTH:
             print('Incorrect Shape:', waveform.shape)
             break
