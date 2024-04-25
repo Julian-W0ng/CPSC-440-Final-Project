@@ -3,7 +3,7 @@ from torch.nn import functional as F
 from torch import nn
 
 class VariationalTransformerEncoder(nn.Module):
-    def __init__(self, device, nheads=1, sequence_length=5*44100, channels=1, dropout=0.1, ff_dim=10):
+    def __init__(self, device, nheads=1, sequence_length=5*44100, channels=1, dropout=0.1, ff_dim=5):
         super(VariationalTransformerEncoder, self).__init__()
         assert channels % nheads == 0, "channels must be divisible by nheads"
         # self.pos_embedding = nn.Embedding(sequence_length, channels, device=device)
@@ -35,7 +35,7 @@ class VariationalTransformerDecoder(nn.Module):
         self.transformerDecoder = nn.TransformerDecoder(self.transformerLayers, num_layers=1)
 
     def forward(self, x, z):
-        mask = torch.triu(torch.ones(x.size(1), x.size(1)), diagonal=1).bool().to(x.device)
+        mask = torch.triu(torch.ones(x.shape[1], x.shape[1]), diagonal=1).bool().unsqueeze(0).repeat(x.shape[0], 1, 1).to(x.device)
         x = self.transformerDecoder(tgt=x, memory=z, tgt_mask=mask)
         return x
         
@@ -63,7 +63,9 @@ def elbo_loss(x, x_hat, mu, log_sigma):
 def sample_wav(decoder, device, sample_length, sample_size, channels):
     decoder.eval()
     z = torch.randn(sample_size, sample_length, channels).to(device)
-    output = torch.zeros(sample_size, sample_length, channels).to(device)
+    output = torch.ones(sample_size, sample_length, channels).to(device)
     for i in range(sample_length):
         output = decoder(output, z)
+        print(output)
+        input("Press Enter to Continue")
     return output

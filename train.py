@@ -10,7 +10,7 @@ from model import VariationalTransformerEncoder, VariationalTransformerDecoder, 
 import torchaudio
 from utils import bool_string, plot_waveform, plot_specgram
 
-def train_vae(encoder, decoder, data_loader, optimizer, loss_op, device, args, epoch):
+def train_vae(encoder, decoder, data_loader, optimizer_en, optimizer_dec, loss_op, device, args, epoch):
     encoder.train()
     decoder.train()
     # loss_tracker = mean_tracker()
@@ -22,9 +22,11 @@ def train_vae(encoder, decoder, data_loader, optimizer, loss_op, device, args, e
         output = decoder(data, z)
         loss = loss_op(data, output, mu, sigma)
         # loss_tracker.update(loss.item())
-        optimizer.zero_grad()
+        optimizer_en.zero_grad()
+        optimizer_dec.zero_grad()
         loss.backward()
-        optimizer.step()
+        optimizer_en.step()
+        optimizer_dec.step()
 
     if args.wandb:
         wandb.log({'train_loss': loss.item()}, step=epoch)
@@ -145,7 +147,8 @@ for epoch in tqdm(range(args.epochs)):
         encoder=encoder,
         decoder=decoder,
         data_loader=train_loader,
-        optimizer=optimizer_en,
+        optimizer_en=optimizer_en,
+        optimizer_dec= optimizer_dec,
         loss_op=loss_op,
         device=device,
         args=args,
@@ -176,22 +179,21 @@ for epoch in tqdm(range(args.epochs)):
             sample_size=args.sample_size,
             channels=args.channels)
         
-        for i in range(args.sample_size):
-            if sample.any() != 0:
-                print("good sample")
+        print(sample[0])    
         #Upload to wandb
         
-        #convert to numpy and upload
-        sample_np = sample.detach().cpu().numpy()
-        if args.wandb:
-            wandb.log({f'samples': wandb.Audio(sample.squeeze(), sample_rate=args.sample_rate)}, step=epoch+1)
-   
-        sample = sample.squeeze().detach().cpu()
         # Save to File
-        torchaudio.save(f'{args.sample}/sample_{epoch}.wav', sample, sample_rate=args.sample_rate)
+        for i in range(args.sample_size):
+            print(sample[i].shape)
+            wav_to_save = sample[i].detach().cpu()
+            torchaudio.save(f'{args.sample}/sample_{epoch}_{i}.wav', wav_to_save, sample_rate=args.sample_rate, channels_first=False)
         
+        #convert to numpy and upload
+        if args.wandb:
+            # sample_np = sample.detach().cpu().numpy()
+            wandb.log({f'samples': wandb.Audio(sample.squeeze(), sample_rate=args.sample_rate)}, step=epoch+1)
 
-        # Plot Waveform
+        # # Plot Waveform
         # plot_waveform(sample, args.sample_rate)
         # plot_specgram(sample, args.sample_rate)
         # input('Press Enter to Continue')
