@@ -9,20 +9,47 @@ class VariatinoalTransformerEncoder(nn.Module):
         self.transformerEncoder = nn.TransformerEncoder(self.transformerLayers, num_layers=1)
         # TODO: fully connected layer to output mu and sigma
         # The latent space does not need to match the input space
+        self.fc_mu = nn.Linear(channels, channels)
+        self.fc_sigma = nn.Linear(channels, channels)
 
-    def forward(self, x):
-        pass
-        # Return mu and sigma
-
+    def forward(self, x):   
+        # B x T x C
+        x = x + self.pos_embedding(torch.arange(x.size(1)).unsqueeze(0).to(x.device))
+        x = self.transformerEncoder(x)
+        mu = self.fc_mu(x)
+        sigma = self.fc_sigma(x)
+        return mu, sigma
+    
 class VariationalTransformerDecoder(nn.Module):
     def __init__(self, device, nheads=5, sequence_length=5*44100, channels=1, dropout=0.1, ff_dim=2048):
         super(VariationalTransformerDecoder, self).__init__()
+        #dont need to use sequence length for the embedding since we are using the latent space
         self.pos_embedding = nn.Embedding(sequence_length, channels, device=device)
         # TODO: figure out how to use the transformer decoder and add the the sampling of the latent space
-        # self.transformerLayers = nn.TransformerDecoderLayer(d_model=channels, nhead=nheads, dim_feedforward=ff_dim, batch_first=True, dropout=dropout, device=device)
-        # self.transformerDecoder = nn.TransformerDecoder(self.transformerLayers, num_layers=1)
 
-    def forward(self, x):
-        pass
-        # Return B x T x C
-        # This will be used to generate the output waveform and calculate the loss
+        self.transformerLayers = nn.TransformerDecoderLayer(d_model=channels, nhead=nheads, dim_feedforward=ff_dim, batch_first=True, dropout=dropout, device=device)
+        self.transformerDecoder = nn.TransformerDecoder(self.transformerLayers, num_layers=1, device=device)
+
+    def forward(self, x, mu, sigma):
+
+        z = sample_latent(mu, sigma)
+        mask = torch.triu(torch.ones(x.size(1), x.size(1)), diagonal=1).bool().to(x.device)
+        x = x + self.pos_embedding(torch.arange(x.size(1)).unsqueeze(0).to(x.device))
+        x = self.transformerDecoder(target=x, memory=z, tgt_mask=mask)
+        return x
+        
+def sample_latent(mu, sigma):
+    # B x T x C
+    # Sample from the normal distribution
+    # mu is the mean and sigma is the standard deviation
+    # We need to sample from the normal distribution to get the latent space
+    return torch.normal(mu, sigma)
+
+def elbo_loss(x, x_hat, mu, sigma):
+    # Reconstruction Loss
+    recon_loss = nn.functional.mse_loss(x_hat, x)
+
+    # KL Divergence
+    kl_div = -0.5 * torch.sum(1 + sigma - mu.pow(2) - sigma.exp())
+    return recon_loss + kl_div
+
