@@ -17,7 +17,6 @@ def train_vae(encoder, decoder, data_loader, optimizer, loss_op, device, args, e
 
     for batch_idx, data in enumerate(tqdm(data_loader)):
         data = data.to(device)
-        optimizer.zero_grad()
         mu, sigma = encoder(data)
         z = sample_latent(mu, sigma)
         output = decoder(data, z)
@@ -30,6 +29,8 @@ def train_vae(encoder, decoder, data_loader, optimizer, loss_op, device, args, e
     if args.wandb:
         wandb.log({'train_loss': loss.item()}, step=epoch)
         wandb.log({'train_epoch': epoch})
+
+
 def test(model, data_loader, loss_op, device, args, epoch):
     model.eval()
     # loss_tracker = mean_tracker()
@@ -117,7 +118,6 @@ train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=args.batch_
 test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=args.batch_size, shuffle=True)
 
 
-
 # load model if specified
 encoder = VariationalTransformerEncoder(device=device, nheads=args.nheads, sequence_length=args.seq_len*args.sample_rate, channels=args.channels, dropout=args.dropout)
 decoder = VariationalTransformerDecoder(device=device, nheads=args.nheads, sequence_length=args.seq_len*args.sample_rate, channels=args.channels, dropout=args.dropout)
@@ -176,6 +176,9 @@ for epoch in tqdm(range(args.epochs)):
             sample_size=args.sample_size,
             channels=args.channels)
         
+        for i in range(args.sample_size):
+            if sample.any() != 0:
+                print("good sample")
         #Upload to wandb
         
         #convert to numpy and upload
@@ -188,7 +191,7 @@ for epoch in tqdm(range(args.epochs)):
         torchaudio.save(f'{args.sample}/sample_{epoch}.wav', sample, sample_rate=args.sample_rate)
         
 
-        # # Plot Waveform
+        # Plot Waveform
         # plot_waveform(sample, args.sample_rate)
         # plot_specgram(sample, args.sample_rate)
         # input('Press Enter to Continue')

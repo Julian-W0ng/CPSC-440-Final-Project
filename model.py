@@ -21,11 +21,11 @@ class VariationalTransformerEncoder(nn.Module):
         x = self.transformerEncoder(x)
         x = x.view(x.shape[0], -1)
         mu = self.fc_mu(x)
-        sigma = torch.exp(self.fc_log_sigma(x))
-        return mu, sigma
+        log_sigma = self.fc_log_sigma(x)
+        return mu, log_sigma
     
 class VariationalTransformerDecoder(nn.Module):
-    def __init__(self, device, nheads=5, sequence_length=5*44100, channels=1, dropout=0.1, ff_dim=5):
+    def __init__(self, device, nheads=5, sequence_length=5*44100, channels=1, dropout=0.1, ff_dim=10):
         super(VariationalTransformerDecoder, self).__init__()
         #dont need to use sequence length for the embedding since we are using the latent space
         # self.pos_embedding = nn.Embedding(sequence_length, channels, device=device)
@@ -44,22 +44,26 @@ def sample_latent(mu, sigma):
     # Sample from the normal distribution
     # mu is the mean and sigma is the standard deviation
     # We need to sample from the normal distribution to get the latent space
-    return torch.normal(mu, sigma).unsqueeze(-1)
+    
+    # Sample from standard normal distribution
+    epsilon = torch.randn_like(sigma).to(sigma.device)
+    sample = mu + sigma * epsilon
+    return sample.view(sample.shape[0], sample.shape[1], -1)
 
-
-def elbo_loss(x, x_hat, mu, sigma):
+def elbo_loss(x, x_hat, mu, log_sigma):
+    
     # Reconstruction Loss
-    recon_loss = nn.functional.mse_loss(x_hat, x)
+    recon_loss = nn.functional.mse_loss(x_hat, x, reduction='sum')
 
     # KL Divergence
-    kl_div = -0.5 * torch.sum(1 + sigma - mu.pow(2) - sigma.exp())
+    kl_div = -0.5 * torch.sum(1 + log_sigma - mu.pow(2) - log_sigma.exp())
     return recon_loss + kl_div
+
 
 def sample_wav(decoder, device, sample_length, sample_size, channels):
     decoder.eval()
-    z = torch.zeros(sample_size, sample_length, channels).to(device)
-    output = torch.randn(sample_size, sample_length, channels).to(device)
+    z = torch.randn(sample_size, sample_length, channels).to(device)
+    output = torch.zeros(sample_size, sample_length, channels).to(device)
     for i in range(sample_length):
         output = decoder(output, z)
     return output
-
