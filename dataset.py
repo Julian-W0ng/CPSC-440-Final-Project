@@ -41,15 +41,13 @@ class MusicData(Dataset):
         return waveform
     
 if __name__ == '__main__':
+    sample_length = 5
+    sample_rate = 8000
     dataset = MusicData()
     dataloader = DataLoader(dataset, batch_size=5, shuffle=True)
     for i, waveform in enumerate(dataloader):
         if i == 1:
             print('Waveform Shape:', waveform.shape)
+            waveform = waveform.permute(0, 2, 1)
+            torchaudio.save(f'./samples/sample_{i}.wav', waveform[0], sample_rate)
             
-            # plot_waveform(first_sample_waveform, dataset.SAMPLE_RATE)
-            # plot_specgram(first_sample_waveform, dataset.SAMPLE_RATE)
-            input('Press Enter to continue...')
-        if waveform.shape[1] != dataset.SAMPLE_RATE*dataset.SAMPLE_LENGTH:
-            print('Incorrect Shape:', waveform.shape)
-            break
