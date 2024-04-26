@@ -160,10 +160,10 @@ for epoch in tqdm(range(args.epochs)):
             waveform = samples[i].detach().cpu()
             torchaudio.save(f'{args.sample}/sample_{epoch}_{i}.wav', waveform, args.sample_rate)
         
-        #convert to numpy and upload
-        # if args.wandb:
-        #     # sample_np = sample.detach().cpu().numpy()
-        #     wandb.log({f'samples': wandb.Audio(sample.squeeze(), sample_rate=args.sample_rate)}, step=epoch+1)
+        # convert to numpy and upload
+        if args.wandb:
+            # sample_np = sample.detach().cpu().numpy()
+            wandb.log({f'samples': wandb.Audio(sample.squeeze(), sample_rate=args.sample_rate)}, step=epoch+1)
 
         # # Plot Waveform
         # plot_waveform(sample, args.sample_rate)

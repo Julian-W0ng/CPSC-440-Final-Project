@@ -77,18 +77,19 @@ class SimpleVAE(nn.Module):
 
     super(SimpleVAE, self).__init__()
 
-    self.kernel_size = sample_rate//2
+    self.kernel_size = sample_rate//2 + 1
     self.image_size = sequence_length*channels
-    self.size_after_conv = (self.image_size - self.kernel_size + 1)  # size after first conv layer
-    self.size_after_conv = (self.size_after_conv - self.kernel_size + 1)  # size after second conv layer
+    self.size_after_conv = (self.image_size)
 
     self.flat_size_after_conv = num_filters * self.size_after_conv
 
     # encoder
     self.encoder = nn.Sequential(
-        nn.Conv1d(1, num_filters, self.kernel_size),
+        nn.Conv1d(1, num_filters, self.kernel_size, padding_mode='zeros', padding=self.kernel_size//2),
         nn.ReLU(),
-        nn.Conv1d(num_filters, num_filters, self.kernel_size),
+        nn.Conv1d(num_filters, num_filters, self.kernel_size,  padding_mode='zeros', padding=self.kernel_size//2),
+        nn.ReLU(),
+        nn.Conv1d(num_filters, num_filters, self.kernel_size, padding_mode='zeros', padding=self.kernel_size//2),
         nn.ReLU(),
         nn.Flatten(),
         nn.Linear(self.flat_size_after_conv, K+1)
@@ -99,9 +100,12 @@ class SimpleVAE(nn.Module):
         nn.Linear(K, num_filters * self.size_after_conv),
         nn.Unflatten(1, (num_filters, self.size_after_conv)),
         nn.ReLU(),
-        nn.ConvTranspose1d(num_filters, num_filters, self.kernel_size),
+        nn.ConvTranspose1d(num_filters, num_filters, self.kernel_size, padding_mode='zeros', padding=self.kernel_size//2),
         nn.ReLU(),
-        nn.ConvTranspose1d(num_filters, 1, self.kernel_size),
+        nn.ConvTranspose1d(num_filters, num_filters, self.kernel_size, padding_mode='zeros', padding=self.kernel_size//2),
+        nn.ReLU(),
+        nn.ConvTranspose1d(num_filters, 1, self.kernel_size, padding_mode='zeros', padding=self.kernel_size//2),
+        nn.Tanh()
     )
 
     # decoder variance parameter: for simplicity, we define a scalar log_sig_x for all pixels

@@ -12,7 +12,7 @@ import torchaudio
 from utils import bool_string, plot_waveform, plot_specgram, mean_tracker
 import torch.nn as nn
 
-def train_vae(model, data_loader, optimizer, loss_op, device, args, epoch, n_samples=100):
+def train_vae(model, data_loader, optimizer, loss_op, device, args, epoch, n_samples=10):
     model.train()
     loss_tracker = mean_tracker()
 
@@ -60,7 +60,7 @@ parser.add_argument('--epochs', type=int, default=1000,
                     help='number of epochs to train')
 parser.add_argument('--batch_size', type=int, default=5,
                     help='batch size')
-parser.add_argument('--seq_len', type=int, default=2,
+parser.add_argument('--seq_len', type=int, default=1,
                     help='length of the sequence in seconds')
 parser.add_argument('--sample_rate', type=int, default=3000,
                     help='sample rate')
@@ -115,7 +115,7 @@ test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=args.batch_si
 # load model if specified
 # model = VariationalTransformerAutoencoder(device, nheads=args.nheads, sequence_length=args.seq_len*args.sample_rate, channels=args.channels, dropout=args.dropout)
 K = args.sample_rate
-model = SimpleVAE(K=K, num_filters= 128, sequence_length=args.seq_len*args.sample_rate, channels=args.channels, sample_rate = args.sample_rate)
+model = SimpleVAE(K=K, num_filters= 32, sequence_length=args.seq_len*args.sample_rate, channels=args.channels, sample_rate = args.sample_rate)
 if args.model:
     model = torch.load(args.model)
 

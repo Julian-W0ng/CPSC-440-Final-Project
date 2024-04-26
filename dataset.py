@@ -20,7 +20,7 @@ class MusicData(Dataset):
     
 
     def __len__(self):
-        return int(len(self.data)/10)
+        return len(self.data)
     
     def __getitem__(self, idx):
         audio_path = self.data[idx]
@@ -34,9 +34,6 @@ class MusicData(Dataset):
         if waveform.shape[-1] > self.SAMPLE_RATE*self.SAMPLE_LENGTH:
             random_offset = torch.randint(0, waveform.shape[-1] - self.SAMPLE_RATE*self.SAMPLE_LENGTH, (1,)).item()
             waveform = waveform[:, random_offset:random_offset+self.SAMPLE_RATE*self.SAMPLE_LENGTH]
-
-        # switch channels and time
-        waveform = waveform.permute(1, 0)
 
         return waveform
     
