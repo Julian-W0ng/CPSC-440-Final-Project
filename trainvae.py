@@ -9,23 +9,23 @@ from dataset import MusicData
 from model import VariationalTransformerAutoencoder, elbo_loss, sample
 from vaesimple import SimpleVAE
 import torchaudio
-from utils import bool_string, plot_waveform, plot_specgram
+from utils import bool_string, plot_waveform, plot_specgram, mean_tracker
 import torch.nn as nn
 
 def train_vae(model, data_loader, optimizer, loss_op, device, args, epoch, n_samples=100):
     model.train()
-    # loss_tracker = mean_tracker()
+    loss_tracker = mean_tracker()
 
     for batch_idx, data in enumerate(tqdm(data_loader)):
         data = data.to(device)
         loss = -model.elbo(data, n=n_samples)
-        # loss_tracker.update(loss.item())
+        loss_tracker.update(loss.item())
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
 
     if args.wandb:
-        wandb.log({'train_loss': loss.item()}, step=epoch)
+        wandb.log({'train_loss': loss_tracker.get_mean()}, step=epoch)
         wandb.log({'train_epoch': epoch})
 
 
@@ -56,13 +56,13 @@ parser.add_argument('--sample_size', type=int, default=5,
                     help='number of samples to generate')
 parser.add_argument('--model', type=str, default=None,
                     help='location of the model to load and continue training')
-parser.add_argument('--epochs', type=int, default=8000,
+parser.add_argument('--epochs', type=int, default=1000,
                     help='number of epochs to train')
 parser.add_argument('--batch_size', type=int, default=5,
                     help='batch size')
-parser.add_argument('--seq_len', type=int, default=5,
+parser.add_argument('--seq_len', type=int, default=2,
                     help='length of the sequence in seconds')
-parser.add_argument('--sample_rate', type=int, default=8000,
+parser.add_argument('--sample_rate', type=int, default=3000,
                     help='sample rate')
 parser.add_argument('--dropout', type=float, default=0.1,
                     help='dropout rate')
@@ -74,7 +74,7 @@ parser.add_argument('--seed', type=int, default=0,
                     help='random seed')
 parser.add_argument('--wandb', type=bool_string, default=True,
                     help='use wandb for logging')
-parser.add_argument('--lr', type=int, default=1e-3, help='learning rate')
+parser.add_argument('--lr', type=int, default=1e-4, help='learning rate')
 parser.add_argument('--save_interval', type=int, default=1, help='save interval')
 
 args = parser.parse_args()
@@ -114,7 +114,8 @@ test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=args.batch_si
 
 # load model if specified
 # model = VariationalTransformerAutoencoder(device, nheads=args.nheads, sequence_length=args.seq_len*args.sample_rate, channels=args.channels, dropout=args.dropout)
-model = SimpleVAE(K=args.seq_len, num_filters= 32, sequence_length=args.seq_len*args.sample_rate, channels=args.channels, sample_rate = args.sample_rate)
+K = args.sample_rate
+model = SimpleVAE(K=K, num_filters= 128, sequence_length=args.seq_len*args.sample_rate, channels=args.channels, sample_rate = args.sample_rate)
 if args.model:
     model = torch.load(args.model)
 
@@ -151,8 +152,7 @@ for epoch in tqdm(range(args.epochs)):
 
         # Generate Sample Audio
         n_samples = args.sample_size
-        samples_z = torch.randn(n_samples, 1, 2).to(device)
-        samples_z = samples_z.view(n_samples, -1)  # reshape samples_z to match the expected input shape of decode
+        samples_z = torch.randn(n_samples, 1, K).to(device)
         with torch.no_grad():
             samples_x = model.decode(samples_z)
 

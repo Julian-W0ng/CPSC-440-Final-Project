@@ -4,8 +4,6 @@ from torch import nn
 import numpy as np
 
 
-
-
 def kl_q_p_exact(params_q: torch.Tensor, params_p: torch.Tensor) -> torch.Tensor:
   """
   Ground truth function used for unit test. Do not modify.
@@ -13,7 +11,7 @@ def kl_q_p_exact(params_q: torch.Tensor, params_p: torch.Tensor) -> torch.Tensor
   @param params_p: [B, K+1]: parameters of B many p distribution, the first K elements are the mean, the last element is the log standard deviation
   @return kl_q_p_e [B]: KL(q||p) for q||p
   """
-  # Init  \
+  # Init 
   b, k_ = params_q.shape
   k = k_ - 1
   mu_q, log_sig_q = params_q[:, :-1], params_q[:, -1]  # [B, K], [B]
@@ -32,14 +30,8 @@ def log_prob(x: torch.Tensor, mu: torch.Tensor, log_sigma: torch.Tensor) -> torc
   """
   B, N, K = x.shape
   log_prob = torch.zeros(B, N).to(x.device)
-  # for b in range(B):
-  #   for n in range(N):
-  #     log_prob[b, n] = -K * log_sigma[b, n] 
-  #     log_prob[b, n] -= ((x[b, n] - mu[b, n])**2).sum() / (2 * torch.exp(2 * log_sigma[b, n])) 
-  #     log_prob[b, n] -= K / 2 * np.log(2 * np.pi)
   log_prob = -K * log_sigma - ((x - mu)**2).sum(dim=-1) / (2 * torch.exp(2 * log_sigma)) - K / 2 * np.log(2 * np.pi)
 
-  ### END CODE HERE ###
   return log_prob
 
 def elbo_loss(x, x_hat, mu, log_sigma):
@@ -62,7 +54,6 @@ def rsample(params_q: torch.Tensor, num_samples: int) -> torch.Tensor:
     k = k_ - 1
     mu_q, log_sig_q = params_q[:, :-1], params_q[:, -1]  # [B, K], [B]
 
-    ### START CODE HERE ###
     z = torch.randn(b, num_samples, k).to(mu_q.device)
     
     # make mu_q, and log_sig_q [B, N, K]
@@ -70,10 +61,8 @@ def rsample(params_q: torch.Tensor, num_samples: int) -> torch.Tensor:
     log_sig_q = log_sig_q.unsqueeze(1).unsqueeze(2).expand(-1, num_samples, k)
 
     x_q = mu_q + z * torch.exp(log_sig_q)
-    ### END CODE HERE ###
 
     return x_q
-
 
 class SimpleVAE(nn.Module):
   """
@@ -88,7 +77,7 @@ class SimpleVAE(nn.Module):
 
     super(SimpleVAE, self).__init__()
 
-    self.kernel_size = 5
+    self.kernel_size = sample_rate//2
     self.image_size = sequence_length*channels
     self.size_after_conv = (self.image_size - self.kernel_size + 1)  # size after first conv layer
     self.size_after_conv = (self.size_after_conv - self.kernel_size + 1)  # size after second conv layer
@@ -141,7 +130,7 @@ class SimpleVAE(nn.Module):
     zs = rsample(phi, n)      # [B, N, K] <- [B, K+1]
     mu_xs = self.decode(zs)   # [B, N, C, H, W] <- [B, N, K]
 
-    b, c, w= x.shape
+    b, c, w = x.shape
     x_flat = x.view(b, 1, -1).expand(-1, n, -1)                 # [B, N, C*H*W] <- [B, 1, C*H*W] <- [B, C, H, W]
     mu_xs_flat = mu_xs.view(b, n, -1)                           # [B, N, C*H*W]
     log_sig_x = self.log_sig_x.view(1, 1).expand(x.size(0), n)  # [B, N]
@@ -151,5 +140,3 @@ class SimpleVAE(nn.Module):
     elbo_loss = log_prob(x_flat, mu_xs_flat, log_sig_x).mean() - kl_q_p_exact(phi, torch.zeros_like(phi)).mean()
     return elbo_loss
   
-
-
