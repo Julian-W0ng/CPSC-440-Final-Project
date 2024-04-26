@@ -40,3 +40,18 @@ def plot_waveform(waveform, sample_rate):
 
 def plot_specgram(waveform, sample_rate):
   _plot(waveform, sample_rate, title="Spectrogram")
+
+
+# Reference: cpen455 utiils.py file
+class mean_tracker:
+    def __init__(self):
+        self.sum = 0
+        self.count = 0
+    def update(self, new_value):
+        self.sum += new_value
+        self.count += 1
+    def get_mean(self):
+        return self.sum/self.count
+    def reset(self):
+        self.sum = 0
+        self.count = 0
