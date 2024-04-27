@@ -59,11 +59,11 @@ parser.add_argument('--sample_size', type=int, default=5,
                     help='number of samples to generate')
 parser.add_argument('--model', type=str, default=None,
                     help='location of the model to load and continue training')
-parser.add_argument('--epochs', type=int, default=1000,
+parser.add_argument('--epochs', type=int, default=2000,
                     help='number of epochs to train')
-parser.add_argument('--batch_size', type=int, default=5,
+parser.add_argument('--batch_size', type=int, default=32,
                     help='batch size')
-parser.add_argument('--seq_len', type=int, default=1,
+parser.add_argument('--seq_len', type=int, default=5,
                     help='length of the sequence in seconds')
 parser.add_argument('--sample_rate', type=int, default=3000,
                     help='sample rate')
@@ -77,8 +77,8 @@ parser.add_argument('--seed', type=int, default=0,
                     help='random seed')
 parser.add_argument('--wandb', type=bool_string, default=True,
                     help='use wandb for logging')
-parser.add_argument('--lr', type=int, default=1e-3, help='learning rate')
-parser.add_argument('--save_interval', type=int, default=1, help='save interval')
+parser.add_argument('--lr', type=int, default=1e-5, help='learning rate')
+parser.add_argument('--save_interval', type=int, default=25, help='save interval')
 
 args = parser.parse_args()
 pprint(args.__dict__)
@@ -118,9 +118,9 @@ test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=args.batch_si
 # load model if specified
 # model = VariationalTransformerAutoencoder(device, nheads=args.nheads, sequence_length=args.seq_len*args.sample_rate, channels=args.channels, dropout=args.dropout)
 # model = SimpleVAE(K=K, num_filters= 32, sequence_length=args.seq_len*args.sample_rate, channels=args.channels, sample_rate = args.sample_rate)
-K = args.sample_rate//4
-kernel_size = args.sample_rate//4 + 1
-model = VAE(input_size=args.sample_rate*args.seq_len, latent_size=K, input_channels=args.channels, kernel_size=kernel_size, num_kernels=8) 
+hidden_size = args.sample_rate * 3 
+latent_size = args.sample_rate // 2
+model = VAE(input_size=args.sample_rate*args.seq_len, hidden_size=hidden_size, latent_size=latent_size, input_channels=args.channels, num_hidden_layers=15)
 if args.model:
     model = torch.load(args.model)
 
@@ -131,7 +131,7 @@ optimizer = torch.optim.AdamW(model.parameters(), weight_decay=1e-5, lr=args.lr)
 for param_group in optimizer.param_groups:
         param_group['initial_lr'] = args.lr
 lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=1, gamma=0.995)
-# lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(T_0=5, T_mult=2, eta_min=args.lr/1e2, last_epoch=args.epochs, optimizer=optimizer)
+# lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(T_0=3, T_mult=2, eta_min=1e-5, last_epoch=args.epochs, optimizer=optimizer)
 
 for epoch in tqdm(range(args.epochs)):
     train_vae(

@@ -4,7 +4,7 @@
 ```bash
 pip3 install torch torchvision torchaudio wandb && pip3 install -r requirements.txt
 ```
-If one windows 
+If on windows 
 ```bash 
 pip install soundfile
 ```

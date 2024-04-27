@@ -2,37 +2,30 @@ import torch
 import torch.nn as nn
 
 class VAE(nn.Module):
-    def __init__(self, input_size, latent_size, kernel_size, num_kernels, input_channels=1):
+    def __init__(self, input_size, hidden_size, latent_size, input_channels=1, num_hidden_layers=3):
         super(VAE, self).__init__()
         self.input_size = input_size
+        self.hidden_size = hidden_size
         self.latent_size = latent_size
-        self.kernel_size = kernel_size
-        self.num_kernels = num_kernels
         self.channels = input_channels
-        self.stride = 2
-        self.padding = kernel_size // 2 
-        self.after_conv_size = input_size // self.stride
-        self.hidden_size = num_kernels * self.after_conv_size
-   
        
         self.encoder = nn.Sequential(
-            nn.Conv1d(input_channels, num_kernels, kernel_size, stride=self.stride, padding=self.padding),
+            # nn.BatchNorm1d(input_channels),
+            nn.Linear(input_size, hidden_size),
             nn.ReLU(),
-            nn.Flatten(),
-            nn.Linear(self.hidden_size, self.hidden_size),
-            nn.ReLU()
+            *[nn.Linear(hidden_size, hidden_size), nn.ReLU()] * num_hidden_layers
         )
 
-        self.mu = nn.Linear(self.hidden_size, latent_size)
-        self.logvar = nn.Linear(self.hidden_size, latent_size)
-
+        self.mu = nn.Linear(hidden_size, latent_size)
+        self.logvar = nn.Linear(hidden_size, latent_size)
+        
         self.decoder = nn.Sequential(
-            nn.Linear(latent_size, self.hidden_size),
+            nn.Linear(latent_size, hidden_size),
             nn.ReLU(),
-            nn.Linear(self.hidden_size, self.hidden_size),
+            nn.Linear(hidden_size, hidden_size),
             nn.ReLU(),
-            nn.Unflatten(1, (num_kernels, self.hidden_size // num_kernels)),
-            nn.ConvTranspose1d(num_kernels, input_channels, kernel_size, stride=self.stride, padding=self.padding, output_padding=1),
+            *[nn.Linear(hidden_size, hidden_size), nn.ReLU()] * num_hidden_layers,
+            nn.Linear(self.hidden_size, input_size),
             nn.Tanh()
         )
 
@@ -49,7 +42,7 @@ class VAE(nn.Module):
         return self.decoder(z), mu, logvar
 
     def sample(self, num_samples, device):
-        z = torch.randn(num_samples, self.latent_size).to(device)
+        z = torch.randn(num_samples, self.channels, self.latent_size).to(device)
         return self.decoder(z)
 
     def loss(self, x, x_recon, mu, logvar):
