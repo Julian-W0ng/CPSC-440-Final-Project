@@ -8,9 +8,11 @@ from pprint import pprint
 from dataset import MusicData
 from model import VariationalTransformerAutoencoder, elbo_loss, sample
 from vaesimple import SimpleVAE
+from vae import VAE
 import torchaudio
 from utils import bool_string, plot_waveform, plot_specgram, mean_tracker
 import torch.nn as nn
+import torch.nn.functional as F
 
 def train_vae(model, data_loader, optimizer, loss_op, device, args, epoch, n_samples=10):
     model.train()
@@ -18,7 +20,8 @@ def train_vae(model, data_loader, optimizer, loss_op, device, args, epoch, n_sam
 
     for batch_idx, data in enumerate(tqdm(data_loader)):
         data = data.to(device)
-        loss = -model.elbo(data, n=n_samples)
+        x_hat, mu, log_sigma = model(data)
+        loss = model.loss(data, x_hat, mu, log_sigma)
         loss_tracker.update(loss.item())
         optimizer.zero_grad()
         loss.backward()
@@ -74,7 +77,7 @@ parser.add_argument('--seed', type=int, default=0,
                     help='random seed')
 parser.add_argument('--wandb', type=bool_string, default=True,
                     help='use wandb for logging')
-parser.add_argument('--lr', type=int, default=1e-4, help='learning rate')
+parser.add_argument('--lr', type=int, default=1e-3, help='learning rate')
 parser.add_argument('--save_interval', type=int, default=1, help='save interval')
 
 args = parser.parse_args()
@@ -114,18 +117,21 @@ test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=args.batch_si
 
 # load model if specified
 # model = VariationalTransformerAutoencoder(device, nheads=args.nheads, sequence_length=args.seq_len*args.sample_rate, channels=args.channels, dropout=args.dropout)
-K = args.sample_rate
-model = SimpleVAE(K=K, num_filters= 32, sequence_length=args.seq_len*args.sample_rate, channels=args.channels, sample_rate = args.sample_rate)
+# model = SimpleVAE(K=K, num_filters= 32, sequence_length=args.seq_len*args.sample_rate, channels=args.channels, sample_rate = args.sample_rate)
+K = args.sample_rate//4
+kernel_size = args.sample_rate//4 + 1
+model = VAE(input_size=args.sample_rate*args.seq_len, latent_size=K, input_channels=args.channels, kernel_size=kernel_size, num_kernels=8) 
 if args.model:
     model = torch.load(args.model)
 
 model.to(device)
 
-loss_op = elbo_loss
-sample_op = sample
-optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
-
-lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=1, gamma=0.1)
+loss_op = F.mse_loss
+optimizer = torch.optim.AdamW(model.parameters(), weight_decay=1e-5, lr=args.lr)
+for param_group in optimizer.param_groups:
+        param_group['initial_lr'] = args.lr
+lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=1, gamma=0.995)
+# lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(T_0=5, T_mult=2, eta_min=args.lr/1e2, last_epoch=args.epochs, optimizer=optimizer)
 
 for epoch in tqdm(range(args.epochs)):
     train_vae(
@@ -152,14 +158,13 @@ for epoch in tqdm(range(args.epochs)):
 
         # Generate Sample Audio
         n_samples = args.sample_size
-        samples_z = torch.randn(n_samples, 1, K).to(device)
         with torch.no_grad():
-            samples_x = model.decode(samples_z)
+            samples_x = model.sample(n_samples, device=device)
 
         # Save Waveform
         for i in range(samples_x.shape[0]):
             waveform = samples_x[i].detach().cpu()
-            torchaudio.save(f'{args.sample}/sample_{epoch}_{i}.wav', waveform[0], args.sample_rate)
+            torchaudio.save(f'{args.sample}/sample_{epoch}_{i}.wav', waveform, args.sample_rate)
 
 
         # if args.wandb:

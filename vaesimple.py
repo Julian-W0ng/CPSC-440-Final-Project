@@ -63,7 +63,10 @@ def rsample(params_q: torch.Tensor, num_samples: int) -> torch.Tensor:
     x_q = mu_q + z * torch.exp(log_sig_q)
 
     return x_q
-
+class ExpLayer(nn.Module):
+    def forward(self, x):
+        return torch.exp(x)
+    
 class SimpleVAE(nn.Module):
   """
   Simple VAE with convolutional encoder and decoder.
@@ -130,17 +133,35 @@ class SimpleVAE(nn.Module):
     @param n:       int: number of samples of z sample and reconstruction samples
     @return elbo:   scalar: aggregated ELBO loss for each image in the batch
     """
-    phi = self.encoder(x)     # [B, K+1] <- [B, C, H, W]
+    phi = self.encoder(x)     # [B, K+1] <- [B, C, W]
     zs = rsample(phi, n)      # [B, N, K] <- [B, K+1]
-    mu_xs = self.decode(zs)   # [B, N, C, H, W] <- [B, N, K]
+    mu_xs = self.decode(zs)   # [B, N, C, W] <- [B, N, K]
 
-    b, c, w = x.shape
-    x_flat = x.view(b, 1, -1).expand(-1, n, -1)                 # [B, N, C*H*W] <- [B, 1, C*H*W] <- [B, C, H, W]
-    mu_xs_flat = mu_xs.view(b, n, -1)                           # [B, N, C*H*W]
-    log_sig_x = self.log_sig_x.view(1, 1).expand(x.size(0), n)  # [B, N]
+    # b, c, w = x.shape
+    # x_flat = x.view(b, 1, -1).expand(-1, n, -1)                 # [B, N, C*W] <- [B, 1, C*W] <- [B, C, H, W]
+    # mu_xs_flat = mu_xs.view(b, n, -1)                           # [B, N, C*W]
+    # log_sig_x = self.log_sig_x.view(1, 1).expand(x.size(0), n)  # [B, N]
 
     # note: we use the exact KL divergence here, but we could also use the Monte Carlo approximation
     # note: we didn't use the ELBO loss implemented in Q1.5, because it is less numerically stable
-    elbo_loss = log_prob(x_flat, mu_xs_flat, log_sig_x).mean() - kl_q_p_exact(phi, torch.zeros_like(phi)).mean()
+    # elbo_loss = log_prob(x_flat, mu_xs_flat, log_sig_x).mean() - kl_q_p_exact(phi, torch.zeros_like(phi)).mean()
+        # Reconstruction Loss
+    mu_xs = mu_xs.squeeze(2)
+
+    recon_loss = nn.functional.mse_loss(mu_xs, x, reduction='sum')
+
+    # KL Divergence
+    kl_div = kl_q_p_exact(phi, torch.zeros_like(phi)).mean()
+    # print(recon_loss, kl_div)
+    return recon_loss + kl_div
+
+
     return elbo_loss
   
+  def forward(self, x, n=1):
+
+    out = self.encoder(x)
+    zs = rsample(out, n)
+    mu_xs = self.decode(zs)
+
+    return mu_xs
